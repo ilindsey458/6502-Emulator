@@ -1,8 +1,8 @@
 # Variables
 CC = gcc
-CFLAGS = -Wall -g
-TARGET = test
-SOURCES = 6502.c
+CFLAGS = -Wall -g -Wno-unused-function
+TARGET = 6502
+SOURCES = 6502.c memory.c
 OBJECTS = $(SOURCES:.c=.o)
 
 # Define target
