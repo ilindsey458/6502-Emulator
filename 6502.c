@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
+// Bit Type Definitions
 typedef uint8_t byte;
 typedef uint16_t word;
 
@@ -40,47 +41,83 @@ extern byte read_6502(word address);
 extern void write_6502(word address, byte p_value);
 
 // Registers
-byte a, x, y, sp, status;
-word pc;
+byte accumulator, x_reg, y_reg, stack_ptr, status_reg;
+word program_counter;
 
 // Variables
 byte opcode;
-word ea, result, value;
+word effective_addr, result, value;
 
-// Processor Functions
+// Tables
+static void (*address_table[256])();
+static void (*opcode_table[256])();
+
+
+// PROCESSOR FUNCTIONS
 
 // Reset Registers
 void reset_6502() {
-	a = x = y = 0;
-	sp = STACK_START;
+	accumulator = x_reg = y_reg = 0;
+	stack_ptr = STACK_START;
+	program_counter = 0;				 // TODO: This needs to be the hardcoded start addr value
 }
 
 // Stack Functions
 void push_byte(byte p_value) {
-	write_6502(STACK_BASE + sp--, p_value);
+	write_6502(STACK_BASE + stack_ptr--, p_value);
 }
 
 void push_word(word p_value) {
-	write_6502(STACK_BASE + sp, (p_value >> 8) & 0xFF);
-	write_6502(STACK_BASE + ((sp - 1) & 0xFF), p_value & 0xFF);
-	sp -= 2;
+	write_6502(STACK_BASE + stack_ptr, (p_value >> 8) & 0xFF);
+	write_6502(STACK_BASE + ((stack_ptr - 1) & 0xFF), p_value & 0xFF);
+	stack_ptr -= 2;
 }
 
 byte pull_byte() {
-	return read_6502(STACK_BASE + ++sp);
+	return read_6502(STACK_BASE + ++stack_ptr);
 }
 
 word pull_word() {
 	word output_word;
-	output_word = read_6502(STACK_BASE + ((sp + 1) & 0xFF));
-	output_word += read_6502(STACK_BASE + ((sp + 2) & 0xFF)) << 8;
+	output_word = read_6502(STACK_BASE + ((stack_ptr + 1) & 0xFF));
+	output_word += read_6502(STACK_BASE + ((stack_ptr + 2) & 0xFF)) << 8;
 	return output_word;
 }
+
+// Addressing Modes
+
+static void imp() { /* implied */ }
+static void acc() { /* accumulator */ }
+
+static byte get_value() {
+	if (address_table[opcode] == acc) return (word)accumulator;
+	else return (word)read_6502(effective_addr);
+}
+
+static word get_value_word() {
+	return (word)(read_6502(effective_addr) | (read_6502(effective_addr + 1) << 8));
+}
+
+static void put_value(word input_value) {
+	if (address_table[opcode] == acc) accumulator = (byte)(input_value & 0xFF);
+	else write_6502(effective_addr, (byte)(input_value & 0xFF));
+}
+
+static void imm() { effective_addr++; }
+
+static void absl() { 
+	effective_addr = (word)read_6502(program_counter) | (word)(read_6502(program_counter+1) << 8);
+}
+
+static void zrp() { effective_addr = (word)(read_6502(program_counter) & 0xFF); }
+
+
+
 
 // Add Memory to Accumulator with Carry
 // A + M + C -> A, C
 static void adc() {
-	result = (word)a + value + (word)(status & FLAG_CARRY);
+	result = (word)accumulator + value + (word)(status_reg & FLAG_CARRY);
 }
 
 static void nop() { 
@@ -88,6 +125,9 @@ static void nop() {
 } 
 
 
+static void (*address_table[256])() = { imp };
+
+static void (*opcode_table[256])() = { acc };
 
 // static void (opcode)() = {
 // 	// OPCODES
@@ -100,11 +140,3 @@ static void nop() {
 
 	// execute(instruction);
 // }
-
-int main() {
-	reset_6502();
-	push_byte(65);
-	push_byte(20);
-	push_word(0xFF55);
-	printf("Bottom of stack : %X\n", pull_word());
-}

@@ -2,7 +2,7 @@
 CC = gcc
 CFLAGS = -Wall -g -Wno-unused-function
 TARGET = 6502
-SOURCES = 6502.c memory.c
+SOURCES = 6502.c memory_64k.c test.c
 OBJECTS = $(SOURCES:.c=.o)
 
 # Define target
