@@ -46,14 +46,11 @@ word program_counter;
 
 // Variables
 byte opcode;
-word effective_addr, result, value;
+word effective_addr, relative_addr, result, value;
 
 // Tables
 static void (*address_table[256])();
 static void (*opcode_table[256])();
-
-
-// PROCESSOR FUNCTIONS
 
 // Reset Registers
 void reset_6502() {
@@ -62,7 +59,9 @@ void reset_6502() {
 	program_counter = 0;				 // TODO: This needs to be the hardcoded start addr value
 }
 
-// Stack Functions
+
+//  INFO: STACK FUNCTIONS
+
 void push_byte(byte p_value) {
 	write_6502(STACK_BASE + stack_ptr--, p_value);
 }
@@ -84,7 +83,8 @@ word pull_word() {
 	return output_word;
 }
 
-// Addressing Modes
+
+//  INFO: ADDRESSING MODES
 
 static void imp() { /* implied */ }
 static void acc() { /* accumulator */ }
@@ -103,16 +103,59 @@ static void put_value(word input_value) {
 	else write_6502(effective_addr, (byte)(input_value & 0xFF));
 }
 
-static void imm() { effective_addr++; }
+static void imm() {		// Immediate
+	effective_addr++; 
+}
 
-static void absl() { 
+static void absl() { 	// Absolute
 	effective_addr = (word)read_6502(program_counter) | (word)(read_6502(program_counter+1) << 8);
 }
 
-static void zrp() { effective_addr = (word)(read_6502(program_counter) & 0xFF); }
+static void zrp() {		// Zero-Page
+	effective_addr = (word)(read_6502(program_counter) & 0xFF);
+}
+
+static void absx() {	// Absolute-X
+	effective_addr = (word)read_6502(program_counter) | (word)(read_6502(program_counter+1) << 8);
+	effective_addr = (effective_addr + x_reg);
+}
+
+static void absy() {	// Absolute-Y
+	effective_addr = (word)read_6502(program_counter) | (word)(read_6502(program_counter+1) << 8);
+	effective_addr = (effective_addr + y_reg);
+}
+
+static void zrpx() {	// Zero Page-X
+	effective_addr = ((word)read_6502(program_counter) + x_reg) & 0xFF;
+}
+
+static void zrpy() {	// Zero Page-Y
+	effective_addr = ((word)read_6502(program_counter) + y_reg) & 0xFF;
+}
+
+static void ind() {		// Indirect 	  FIX: Missing page wrap-around bug
+	word temp_addr = read_6502(program_counter) | (read_6502(program_counter+1) << 8);
+	effective_addr = read_6502(temp_addr) | (read_6502(temp_addr+1) << 8);
+}
+
+static void indx() {	// Indirect-X
+	word temp_addr = (read_6502(program_counter) + x_reg) & 0xFF;
+	effective_addr = read_6502(temp_addr) | (read_6502(temp_addr+1) << 8);
+}
+
+static void indy() {	// Indirect-Y
+	word temp_addr = read_6502(program_counter) & 0xFF;
+	effective_addr = ((read_6502(temp_addr) | (read_6502(temp_addr+1) << 8)) + y_reg);
+}
+
+static void rel() {		// Realtive
+	relative_addr = (word)read_6502(program_counter);
+	// checking if negative and convert to negative 16-bit signed int
+	if (relative_addr & 0x80) { relative_addr |= 0xFF00; }
+}
 
 
-
+//  INFO: OPCODE FUNCTIONS
 
 // Add Memory to Accumulator with Carry
 // A + M + C -> A, C
@@ -124,6 +167,8 @@ static void nop() {
 	// Do Nothing
 } 
 
+
+//  INFO: FUNCTION TABLES
 
 static void (*address_table[256])() = { imp };
 
