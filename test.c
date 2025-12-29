@@ -8,20 +8,25 @@ int main() {
 	push_word(0xFF55);
 	push_word(0x1234);
 
-	write_6502(program_counter, 0xF9);
-	write_6502(program_counter + 1, 0x45);
+	write_6502(instruction_ptr, 0xF9);
+	write_6502(instruction_ptr + 1, 0x45);
 
-	program_counter = 0x1000;
+	instruction_ptr = 0x1000;
 
-	write_6502(0x1000, 0x50);
+	write_6502(0x1000, 0x80);
 	write_6502(0x1001, 0x20);
 	write_6502(0x50, 0x77);
 	write_6502(0x51, 0x66);
 
 	x_reg = 10;
 	y_reg = 15;
+	accumulator = 44;
 
-	indy();
+	result = accumulator + (x_reg ^ 0x00FF);
+
+	printf("Test : %d\n", result);
+
+	printf("Accumulator : %X\n", accumulator);
 
 	printf("Effective Address : %X\n", effective_addr);
 	printf("Bottom of stack : %X\n", pull_word());
