@@ -370,10 +370,59 @@ static void rts() {
 
 // Subtract Memory from Accumulator with Carry
 static void sbc() {
-	value = get_value();
-	//  FIX: This doesn't work yet but I'm tired...
-	// result = (word)accumulator + ~value + (status_reg & FLAG_CARRY);
+	value = get_value() & 0x00FF;
+	result = (word)accumulator + value + (status_reg & FLAG_CARRY);
+	put_value(result);
 }
+
+// Set Carry Flag
+static void sec() {
+	status_reg |= FLAG_CARRY; }
+
+// Set Decimal Flag
+static void sed() {
+	status_reg |= FLAG_DECIMAL; }
+
+// Set Interrupt Flag
+static void sei() {
+	status_reg |= FLAG_INTERRUPT; }
+
+// Store Accumulator to Memory
+static void sta() {
+	put_value(accumulator);
+}
+
+// Store X-Register to Memory
+static void stx() {
+	put_value(x_reg); }
+
+// Store Y-Register to Memory
+static void sty() {
+	put_value(y_reg); }
+
+// Transfer Accumulator to X-Register
+static void tax() {
+	x_reg = accumulator; }
+
+// Transfer Accumulator to Y-Register
+static void tay() {
+	y_reg = accumulator; }
+
+// Transfer Stack Pointer to X-Register
+static void tsx() {
+	x_reg = stack_ptr; }
+
+// Transfer X-Register to Accumulator
+static void txa() {
+	accumulator = x_reg; }
+
+// Transfer X-Register to Stack Pointer
+static void txs() {
+	stack_ptr = x_reg; }
+
+// Transfer Y-Register to Accumulator
+static void tya() {
+	accumulator = y_reg; }
 
 
 //  INFO: FUNCTION TABLES

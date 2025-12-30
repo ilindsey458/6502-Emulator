@@ -21,10 +21,12 @@ int main() {
 	x_reg = 10;
 	y_reg = 15;
 	accumulator = 44;
+	word test = 10;
 
-	result = accumulator + (x_reg ^ 0x00FF);
+	result = (word)accumulator + (test ^ 0x00FF);
+	// result = (word)accumulator + test;
 
-	printf("Test : %d\n", result);
+	printf("Test : %d\n", (byte)result);
 
 	printf("Accumulator : %X\n", accumulator);
 
