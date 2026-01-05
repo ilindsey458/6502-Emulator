@@ -1,4 +1,5 @@
-#include "6502.h"
+#include "stdio.h"
+#include "6502.c"
 #include "chip_mem.h"
 
 int main() {

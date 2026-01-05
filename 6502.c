@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdint.h>
 
 // Bit Type Definitions
@@ -16,22 +15,22 @@ typedef uint16_t word;
 #define FLAG_SIGN 		0x80
 
 // Flag Macros
-#define setcarry() status |= FLAG_CARRY
-#define setzero() status |= FLAG_ZERO
-#define setinterrupt() status |= FLAG_INTERRUPT
-#define setdecimal() status |= FLAG_DECIMAL
-#define setbreak() status |= FLAG_BREAK
-#define setconstant() status |= FLAG_CONSTANT
-#define setoverflow() status |= FLAG_OVERFLOW
-#define setsign() status |= FLAG_SIGN
-#define clearcarry() status &= ~FLAG_CARRY
-#define clearzero() status &= ~FLAG_ZERO
-#define clearinterrupt() status &= ~FLAG_INTERRUPT
-#define cleardecimal() status &= ~FLAG_DECIMAL
-#define clearbreak() status &= ~FLAG_BREAK
-#define clearconstant() status &= ~FLAG_CONSTANT
-#define clearoverflow() status &= ~FLAG_OVERFLOW
-#define clearsign() status &= ~FLAG_SIGN
+#define set_carry() status_reg |= FLAG_CARRY
+#define set_zero() status_reg |= FLAG_ZERO
+#define set_interrupt() status_reg |= FLAG_INTERRUPT
+#define set_decimal() status_reg |= FLAG_DECIMAL
+#define set_break() status_reg |= FLAG_BREAK
+#define set_constant() status_reg |= FLAG_CONSTANT
+#define set_overflow() status_reg |= FLAG_OVERFLOW
+#define set_sign() status_reg |= FLAG_SIGN
+#define clear_carry() status_reg &= ~FLAG_CARRY
+#define clear_zero() status_reg &= ~FLAG_ZERO
+#define clear_interrupt() status_reg &= ~FLAG_INTERRUPT
+#define clear_decimal() status_reg &= ~FLAG_DECIMAL
+#define clear_break() status_reg &= ~FLAG_BREAK
+#define clear_constant() status_reg &= ~FLAG_CONSTANT
+#define clear_overflow() status_reg &= ~FLAG_OVERFLOW
+#define clear_sign() status_reg &= ~FLAG_SIGN
 
 #define STACK_START 0xFD
 #define STACK_BASE 0x100
@@ -56,7 +55,7 @@ static void (*opcode_table[256])();
 void reset_6502() {
 	accumulator = x_reg = y_reg = 0;
 	stack_ptr = STACK_START;
-	instruction_ptr = 0;				 // TODO: This needs to be the hardcoded start addr value
+	instruction_ptr = 0x0200;
 }
 
 
@@ -84,6 +83,23 @@ word pull_word() {
 }
 
 
+//  INFO: FLAG FUNCTIONS
+
+// Zero
+static void zerof_check(word input_value) {
+	if (input_value & 0x00FF) clear_carry();
+	else set_carry();
+}
+
+// Sign
+
+
+// Carry
+
+
+// Overflow
+
+
 //  INFO: ADDRESSING MODES
 
 static void imp() { /* implied */ }
@@ -107,7 +123,7 @@ static void imm() {		// Immediate
 	effective_addr = instruction_ptr; 
 }
 
-static void absl() { 	// Absolute
+static void abs() {		// Absolute
 	effective_addr = (word)read_6502(instruction_ptr) | (word)(read_6502(instruction_ptr+1) << 8);
 }
 
@@ -362,7 +378,10 @@ static void ror() {
 }
 
 // Return from Interrupt
-static void rti() { }
+static void rti() { 
+	status_reg = pull_byte();
+	instruction_ptr = pull_word();
+}
 
 // Return from Sub-Routine
 static void rts() {
@@ -376,16 +395,13 @@ static void sbc() {
 }
 
 // Set Carry Flag
-static void sec() {
-	status_reg |= FLAG_CARRY; }
+static void sec() {	set_carry(); }
 
 // Set Decimal Flag
-static void sed() {
-	status_reg |= FLAG_DECIMAL; }
+static void sed() { set_decimal(); }
 
 // Set Interrupt Flag
-static void sei() {
-	status_reg |= FLAG_INTERRUPT; }
+static void sei() { set_interrupt(); }
 
 // Store Accumulator to Memory
 static void sta() {
@@ -427,9 +443,45 @@ static void tya() {
 
 //  INFO: FUNCTION TABLES
 
-static void (*address_table[256])() = { imp };
+static void (*address_table[256])() = { 
+/*		 0  |  1  |  2  |  3  |  4  |  5  |  6  |  7  |  8  |  9  |  A  |  B  |  C  |  D  |  E  |  F  */
+/* 0 */ brk,  ora,  nop,  nop,  nop,  ora,  asl,  nop,  php,  ora,  asl,  nop,  nop,  ora,  asl,  nop,
+/* 1 */ bpl,  ora,  nop,  nop,  nop,  ora,  asl,  nop,  clc,  ora,  nop,  nop,  nop,  ora,  asl,  nop,
+/* 2 */ jsr,  and,  nop,  nop,  bit,  and,  rol,  nop,  plp,  and,  rol,  nop,  bit,  and,  rol,  nop,
+/* 3 */ bmi,  and,  nop,  nop,  nop,  and,  rol,  nop,  sec,  and,  nop,  nop,  nop,  and,  rol,  nop,
+/* 4 */ rti,  eor,  nop,  nop,  nop,  eor,  lsr,  nop,  pha,  eor,  lsr,  nop,  jmp,  eor,  lsr,  nop,
+/* 5 */ bvc,  eor,  nop,  nop,  nop,  eor,  lsr,  nop,  cli,  eor,  nop,  nop,  nop,  eor,  lsr,  nop,
+/* 6 */ rts,  adc,  nop,  nop,  nop,  adc,  ror,  nop,  pla,  adc,  ror,  nop,  jmp,  adc,  ror,  nop,
+/* 7 */ bvs,  adc,  nop,  nop,  nop,  adc,  ror,  nop,  sei,  adc,  nop,  nop,  nop,  adc,  ror,  nop,
+/* 8 */ nop,  sta,  nop,  nop,  sty,  sta,  stx,  nop,  dey,  nop,  txa,  nop,  sty,  sta,  stx,  nop,
+/* 9 */ bcc,  sta,  nop,  nop,  sty,  sta,  stx,  nop,  tya,  sta,  txs,  nop,  nop,  sta,  nop,  nop, 
+/* A */ ldy,  lda,  ldx,  nop,  ldy,  lda,  ldx,  nop,  tay,  lda,  tax,  nop,  ldy,  lda,  ldx,  nop,
+/* B */ bcs,  lda,  nop,  nop,  ldy,  lda,  ldx,  nop,  clv,  lda,  tsx,  nop,  ldy,  lda,  ldx,  nop,
+/* C */ cpy,  cmp,  nop,  nop,  cpy,  cmp,  dec,  nop,  iny,  cmp,  dex,  nop,  cpy,  cmp,  dec,  nop,
+/* D */ bne,  cmp,  nop,  nop,  nop,  cmp,  dec,  nop,  cld,  cmp,  nop,  nop,  nop,  cmp,  dec,  nop,
+/* E */ cpx,  sbc,  nop,  nop,  cpx,  sbc,  inc,  nop,  inx,  sbc,  nop,  nop,  cpx,  sbc,  inc,  nop,
+/* F */ beq,  sbc,  nop,  nop,  nop,  sbc,  inc,  nop,  sed,  sbc,  nop,  nop,  nop,  sbc,  inc,  nop
+};
 
-static void (*opcode_table[256])() = { acc };
+static void (*opcode_table[256])() = {
+/*		 0  |  1  |  2  |  3  |  4  |  5  |  6  |  7  |  8  |  9  |  A  |  B  |  C  |  D  |  E  |  F  */
+/* 0 */ imp, indx,  imp,  imp,  imp,  zrp,  zrp,  imp,  imp,  imm,  acc,  imp,  imp,  abs,  abs,  imp,
+/* 1 */ rel, indy,  imp,  imp,  imp, zrpx, zrpx,  imp,  imp, absy,  imp,  imp,  imp, absx, absx,  imp,
+/* 2 */ abs, indx,  imp,  imp,  zrp,  zrp,  zrp,  imp,  imp,  imm,  acc,  imp,  abs,  abs,  abs,  imp,
+/* 3 */ rel, indy,  imp,  imp,  imp,  zrp,  zrp,  imp,  imp, absy,  imp,  imp,  imp, absx, absx,  imp,
+/* 4 */ imp, indx,  imp,  imp,  imp,  zrp,  zrp,  imp,  imp,  imm,  acc,  imp,  abs,  abs,  abs,  imp,
+/* 5 */ rel, indy,  imp,  imp,  imp, zrpx, zrpx,  imp,  imp, absy,  imp,  imp,  imp, absx, absx,  imp,
+/* 6 */ imp, indx,  imp,  imp,  imp,  zrp,  zrp,  imp,  imp,  imm,  acc,  imp,  ind,  abs,  abs,  imp,
+/* 7 */ rel, indy,  imp,  imp,  imp, zrpx, zrpx,  imp,  imp, absy,  imp,  imp,  imp, absx, absx,  imp,
+/* 8 */ imp, indx,  imp,  imp,  zrp,  zrp,  zrp,  imp,  imp,  imp,  imp,  imp,  abs,  abs,  abs,  imp,
+/* 9 */ rel, indy,  imp,  imp, zrpx, zrpx, zrpy,  imp,  imp, absy,  imp,  imp,  imp, absx,  imp,  imp,
+/* A */ imm, indx,  imm,  imp,  zrp,  zrp,  zrp,  imp,  imp,  imm,  imp,  imp,  abs,  abs,  abs,  imp,
+/* B */ rel, indy,  imp,  imp, zrpx, zrpx, zrpy,  imp,  imp, absy,  imp,  imp, absx, absx, absy,  imp,
+/* C */ imm, indx,  imp,  imp,  zrp,  zrp,  zrp,  imp,  imp,  imm,  imp,  imp,  abs,  abs,  abs,  imp,
+/* D */ rel, indy,  imp,  imp,  imp, zrpx, zrpx,  imp,  imp, absy,  imp,  imp,  imp, absx, absx,  imp,
+/* E */ imm, indx,  imp,  imp,  zrp,  zrp,  zrp,  imp,  imp,  imm,  imp,  imp,  abs,  abs,  abs,  imp,
+/* F */ rel, indy,  imp,  imp,  imp, zrpx, zrpx,  imp,  imp, absy,  imp,  imp,  imp, absx, absx,  imp
+};
 
 // static void (opcode)() = {
 // 	// OPCODES
