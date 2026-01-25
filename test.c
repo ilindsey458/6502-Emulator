@@ -1,15 +1,24 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
 #include "6502.c"
 
 #define MEM_SIZE 0x10000
+#define HEX_DUMP_WIDTH 8
+#define MAX_BINARY_SIZE 0x7000
+#define PROGRAM_START 0x8000
 
 static byte memory[MEM_SIZE];
 
+typedef struct {
+	char *input_file;
+	int hexdump_flag;
+} args_t;
+
 // Set all elements of array to 0
 void init_memory() {
-	for (int i = 0; i < (sizeof(memory) / sizeof(byte)); i++) { memory[i] = 0; }
+	for (int i = 0; i < MEM_SIZE; i++) { memory[i] = 0; }
 }
 
 // Returns byte at address in memory
@@ -22,55 +31,81 @@ void write_6502(word address, byte p_value) {
 	memory[address] = p_value;
 }
 
-// Loads byte array into memory
-void load_program(word start_address, const byte *program, word length) {
-	for (word i = 0; i < length; i++) {
-		memory[start_address + i] = program[i];
-	}
-	instruction_ptr = start_address;
-	memory[start_address + length] = 0xDB; 		// Add stop program to end of program
-}
-
-static void hexdump() {
-	int line_start;
-	for (int i = 0; i < sizeof(memory) / (sizeof(byte)); i++) {
-		if (memory[i]) {
-			line_start = i - (i % 8);
-			printf("%X : ", line_start);
-			for (int j = 0; j < 7; j++) { printf("%X ", memory[line_start+j]); }
-			printf("%X\n", memory[line_start + 7]);
-			i += 7;
-		}
-	}
-}
-
-
-int main(int argc, char **argv) {
-	int opt, hexdump_flag = 0;
-	char *file_path;	//  HACK: This should use file descriptors and such
-	do  { 						//  FIX: This is messy and buggy
-		switch(opt = getopt(argc, argv, ":hf:")) {
+void parse_args(int argc, char **argv, args_t *args) {
+	int opt;
+	do  {
+		switch(opt = getopt(argc, argv, ":x")) {
 		case -1:
-			file_path = argv[optind];
+			args->input_file = argv[optind];
 			break;
-		case 'h':
-			hexdump_flag = 1;
+		case 'x':
+			args->hexdump_flag = 1;
 			break;
 		default:
 			break;
 		}
 	} while (opt >= 0);
-	byte test_program[30] = {0xA9,0x00,0x85,0x00,0xA9,0x01,0x85,0x01,0xA2,0x00,0xB5,0x00,0x18,0x75,0x01,0x95,0x02,0xE8,0x90,0xF6,0xE8,0xDB};
-	// byte test_program[40] = { 0x18, 0xA9, 0x02, 0x69, 0x02, 0x85, 0x00, 0xDB };
-	size_t program_length = sizeof(test_program) / sizeof(byte);
+}
+
+//  INFO: Prints non-NULL memory space
+static void hexdump() {
+	int line_start;
+	for (int i = 0; i < MEM_SIZE; i++) {
+		if (memory[i]) {
+			line_start = i - (i % HEX_DUMP_WIDTH);
+			printf("%X : ", line_start);
+			for (int j = 0; j < HEX_DUMP_WIDTH - 1; j++) { printf("%X ", memory[line_start+j]); }
+			printf("%X\n", memory[line_start + (HEX_DUMP_WIDTH - 1)]);
+			i += (HEX_DUMP_WIDTH - 1); }
+	}
+}
+
+void chip_out() { printf("Should do output\n"); }
+
+//  INFO: Loads binary file into memory
+int load_program(char *file_name) {
+	FILE *file_ptr = fopen(file_name, "rb");
+	if (file_ptr == NULL) { 
+		fprintf(stderr, "Error reading %s\n", file_name);
+		return EXIT_FAILURE; }
+
+	if (fseek(file_ptr, 0, SEEK_END)) {
+		perror("Error reading file size\n");
+		fclose(file_ptr);
+		return EXIT_FAILURE; }
+
+	size_t file_size = ftell(file_ptr);
+	if (file_size == -1) { 
+		perror("Error determining file position\n");
+		fclose(file_ptr);
+		return EXIT_FAILURE; }
+	else if (file_size > MAX_BINARY_SIZE) {
+		perror("Error, file size too large\n");
+		fclose(file_ptr);
+		return EXIT_FAILURE; }
+
+	printf("Size of file in bytes : %ld\n", file_size);
+	rewind(file_ptr);
+
+	fread(memory + PROGRAM_START, 1, file_size, file_ptr);
+	memory[PROGRAM_START + file_size] = 0xDB;
+	for (int i = 0; i <= file_size; i++) {
+		if (i == file_size) printf("%x\n", memory[i + PROGRAM_START]);
+		else printf("%x, ", memory[i + PROGRAM_START]); }
+
+	fclose(file_ptr);
+	return EXIT_SUCCESS;
+}
+
+int main(int argc, char **argv) {
+	args_t args = {0};
+	parse_args(argc, argv, &args);
 
 	reset_6502();
 	init_memory();
-	load_program(0x0800, test_program, program_length);
+	load_program(args.input_file);
 
 	run_6502();
 
-	hexdump();
-
-	// for (int i = 0; i < 16; i++) { printf("Memory[%X] : %d\n", i, memory[i]); }
+	if (args.hexdump_flag == 1) hexdump();
 }
