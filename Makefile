@@ -3,7 +3,7 @@ CC = gcc
 CFLAGS = -Wall -g -Wno-unused-function
 TARGET = 6502
 SOURCES = test.c
-DEPS = 6502.c chip_mem.c
+DEPS = 6502.c debug.c
 OBJECTS = $(SOURCES:.c=.o)
 
 # Define target

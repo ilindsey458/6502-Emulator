@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdint.h>
 #include <stdio.h>
 
@@ -35,6 +37,8 @@ typedef uint16_t word;
 
 #define STACK_START 0xFD
 #define STACK_BASE 0x100
+#define PROGRAM_START 0x8000
+#define RESET_VECTOR 0xFFFC
 
 // External Memory Functions
 extern byte read_6502(word address);
@@ -56,14 +60,15 @@ static void (*opcode_table[256])();
 void reset_6502() {
 	accumulator = x_reg = y_reg = 0;
 	stack_ptr = STACK_START;
-	instruction_ptr = ((word)read_6502(0xFFFC) | ((word)read_6502(0xFFFD) << 8));
+	instruction_ptr = ((word)read_6502(RESET_VECTOR) | ((word)read_6502(RESET_VECTOR + 1) << 8));
 }
 
 
 //  INFO: STACK FUNCTIONS
 
 void push_byte(byte p_value) {
-	write_6502(STACK_BASE + stack_ptr--, p_value);
+	write_6502(STACK_BASE + stack_ptr, p_value);
+	stack_ptr--;
 }
 
 void push_word(word p_value) {
@@ -73,7 +78,8 @@ void push_word(word p_value) {
 }
 
 byte pull_byte() {
-	return read_6502(STACK_BASE + ++stack_ptr);
+	stack_ptr++;
+	return read_6502(STACK_BASE + stack_ptr);
 }
 
 word pull_word() {
@@ -117,7 +123,6 @@ static void overflow_check(word input_value, word input_result) {
 static void imp() { /* implied */ }
 static void acc() { /* accumulator */ }
 
-//  FIX: IF STATEMENT BUG, STORE ACCUMULATOR DOESNT WORK
 static byte get_value() {
 	if (address_table[opcode] == acc) return (word)accumulator;
 	else return (word)read_6502(effective_addr);
@@ -127,7 +132,6 @@ static word get_value_word() {
 	return ((word)read_6502(effective_addr) | ((word)read_6502(effective_addr + 1) << 8));
 }
 
-//  FIX: IF STATEMENT BUG, STORE ACCUMULATOR DOESNT WORK
 static void put_value(word input_value) {
 	if (address_table[opcode] == acc) {  accumulator = (byte)input_value; }
 	else write_6502(effective_addr, (byte)input_value);
@@ -253,6 +257,7 @@ static void bne() {
 static void bpl() {
 	if (!(status_reg & FLAG_SIGN)) { instruction_ptr += relative_addr; } }
 
+// 
 static void brk() {
 	push_word(instruction_ptr + 2);
 	push_byte(status_reg);
@@ -577,4 +582,3 @@ static void run_6502() {
 		(*opcode_table[opcode])();
 	}
 }
-
