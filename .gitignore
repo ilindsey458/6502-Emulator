@@ -1,3 +1,4 @@
 6502
 test
 *.o
+tests/
